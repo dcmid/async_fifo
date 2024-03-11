@@ -1,0 +1,9 @@
+*
+
+!.gitignore
+!Makefile
+
+!*/
+
+!*hdl/*.sv
+!*sim/*.sv
