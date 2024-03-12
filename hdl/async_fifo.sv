@@ -1,6 +1,7 @@
 module async_fifo #(
   parameter WIDTH = 1,
-  parameter DEPTH = 4
+  parameter DEPTH = 4,
+  parameter FWFT = 0  // set to '1' for first word fall through
 )(
   input   logic[WIDTH-1:0]  i_wdata,
   input   logic             i_wen,
@@ -46,7 +47,7 @@ module async_fifo #(
     input  [PTR_WIDTH:0] gray;
     logic  [PTR_WIDTH:0] bin;
     begin
-      for(int i = 0; i < PTR_WIDTH; i++) begin
+      for(int i = 0; i <= PTR_WIDTH; i++) begin
         bin[i] = ^(gray >> i);
       end
       gray2bin = bin;
@@ -79,12 +80,31 @@ module async_fifo #(
     end
   end
 
-  assign o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
+  // connect o_data depending on FWFT mode
+  generate
+    if (FWFT) begin
+
+      assign o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
+
+    end else begin
+
+      always_ff @(posedge i_rclk) begin : read_block
+        if (i_rrst) begin
+          o_rdata <= '0;
+        end else if (~i_rrst) begin
+          if (i_ren && ~o_empty) begin
+            o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
+          end
+        end
+      end
+
+    end
+  endgenerate
 
   // generate full and empty flags from gray codes
   // this combinatorial chain is getting long... I should probably rework to register this output
-  assign o_full   = wpointer_wclk == rpointer_wclk;
-  assign o_empty  = (wpointer_rclk[PTR_WIDTH-1:0] == rpointer_rclk[PTR_WIDTH-1:0]) && (wpointer_rclk[PTR_WIDTH] ^ rpointer_rclk[PTR_WIDTH]);
+  assign o_empty  = wpointer_rclk == rpointer_rclk;
+  assign o_full   = (wpointer_wclk[PTR_WIDTH-1:0] == rpointer_wclk[PTR_WIDTH-1:0]) && (wpointer_wclk[PTR_WIDTH] ^ rpointer_wclk[PTR_WIDTH]);
 
   // generate gray code equivalents of pointers
   assign gray_wpointer_wclk = bin2gray(wpointer_wclk);
