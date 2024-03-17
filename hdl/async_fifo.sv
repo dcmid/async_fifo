@@ -80,39 +80,27 @@ module async_fifo #(
     end
   end
 
-  // connect o_data depending on FWFT mode
-  generate
-    if (FWFT) begin
-
-      assign o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
-
+  // gray code conversions i_wclk
+  always_ff @(posedge i_wclk) begin
+    if (i_wrst) begin
+      gray_wpointer_wclk <= '0;
+      rpointer_wclk <= '0;
     end else begin
-
-      always_ff @(posedge i_rclk) begin : read_block
-        if (i_rrst) begin
-          o_rdata <= '0;
-        end else if (~i_rrst) begin
-          if (i_ren && ~o_empty) begin
-            o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
-          end
-        end
-      end
-
+      gray_wpointer_wclk <= bin2gray(wpointer_wclk);
+      rpointer_wclk <= gray2bin(gray_rpointer_wclk);
     end
-  endgenerate
+  end
 
-  // generate full and empty flags from gray codes
-  // this combinatorial chain is getting long... I should probably rework to register this output
-  assign o_empty  = wpointer_rclk == rpointer_rclk;
-  assign o_full   = (wpointer_wclk[PTR_WIDTH-1:0] == rpointer_wclk[PTR_WIDTH-1:0]) && (wpointer_wclk[PTR_WIDTH] ^ rpointer_wclk[PTR_WIDTH]);
-
-  // generate gray code equivalents of pointers
-  assign gray_wpointer_wclk = bin2gray(wpointer_wclk);
-  assign gray_rpointer_rclk = bin2gray(rpointer_rclk);
-
-  // generate binary equivalents of gray code pointers
-  assign wpointer_rclk = gray2bin(gray_wpointer_rclk);
-  assign rpointer_wclk = gray2bin(gray_rpointer_wclk);
+  // gray code conversions i_rclk
+  always_ff @(posedge i_rclk) begin
+    if (i_rrst) begin
+      gray_rpointer_rclk <= '0;
+      wpointer_rclk <= '0;
+    end else begin
+      gray_rpointer_rclk <= bin2gray(rpointer_rclk);
+      wpointer_rclk <= gray2bin(gray_wpointer_rclk);
+    end
+  end
 
   // CDC for write pointer
   always_ff @(posedge i_wclk) begin : wpointer_cdc
@@ -135,5 +123,31 @@ module async_fifo #(
       gray_wpointer_rclk  <= gray_wpointer_cdc;
     end
   end
+
+  // connect o_data depending on FWFT mode
+  generate
+    if (FWFT) begin
+
+      assign o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
+
+    end else begin
+
+      always_ff @(posedge i_rclk) begin : read_block
+        if (i_rrst) begin
+          o_rdata <= '0;
+        end else if (~i_rrst) begin
+          if (i_ren && ~o_empty) begin
+            o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
+          end
+        end
+      end
+
+    end
+  endgenerate
+
+  // generate full and empty flags from gray codes
+  assign o_empty  = wpointer_rclk == rpointer_rclk;
+  assign o_full   = (wpointer_wclk[PTR_WIDTH-1:0] == rpointer_wclk[PTR_WIDTH-1:0]) && (wpointer_wclk[PTR_WIDTH] ^ rpointer_wclk[PTR_WIDTH]);
+
 endmodule
 

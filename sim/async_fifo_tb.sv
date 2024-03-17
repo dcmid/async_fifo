@@ -88,8 +88,6 @@ module async_fifo_tb;
       write_fifo(wcount + 1);
       wcount <= wcount + 1;
       @(posedge i_wclk);
-      // delay to allow o_full to update
-      // repeat(3) @(posedge i_wclk);
     end
     
   end
