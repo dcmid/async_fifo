@@ -137,7 +137,7 @@ module async_fifo #(
           o_rdata <= '0;
         end else if (~i_rrst) begin
           if (i_ren && ~o_empty) begin
-            o_rdata = mem[rpointer_rclk[PTR_WIDTH-1:0]];
+            o_rdata <= mem[rpointer_rclk[PTR_WIDTH-1:0]];
           end
         end
       end
